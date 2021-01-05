@@ -76,6 +76,7 @@ function calcRadar(e, chartInstance) {
 }
 
 function calcPosition(e, chartInstance, datasetIndex, index, data) {
+
   let x, y
   if (e.touches) {
     x = chartInstance.scales[scaleX].getValueForPixel(e.touches[0].clientX - chartInstance.canvas.getBoundingClientRect().left)
@@ -85,14 +86,27 @@ function calcPosition(e, chartInstance, datasetIndex, index, data) {
     y = chartInstance.scales[scale].getValueForPixel(e.clientY - chartInstance.canvas.getBoundingClientRect().top)
   }
 
-  x = roundValue(x, chartInstance.options.dragDataRound)
-  y = roundValue(y, chartInstance.options.dragDataRound)
+  //x = roundValue(x, chartInstance.options.dragDataRound)
+  //y = roundValue(y, chartInstance.options.dragDataRound)
+
+  const stepX = 5 * 60 * 1000
+  const stepY  = 0.5
+
+  x = Math.ceil(x/stepX)*stepX
+  y = Math.ceil(y/stepY)*stepY
 
   x = x > chartInstance.scales[scaleX].max ? chartInstance.scales[scaleX].max : x
   x = x < chartInstance.scales[scaleX].min ? chartInstance.scales[scaleX].min : x
 
   y = y > chartInstance.scales[scale].max ? chartInstance.scales[scale].max : y
   y = y < chartInstance.scales[scale].min ? chartInstance.scales[scale].min : y
+
+  const prevPoint = index - 1
+  const nextPoint = index + 1
+  const points = chartInstance.data.datasets[0].data
+
+  x = x < points[nextPoint].x ? x: points[nextPoint].x - stepX
+  x = x > points[prevPoint].x ? x: points[prevPoint].x + stepX
 
   if (chartInstance.data.datasets[datasetIndex].data[index].x !== undefined && chartInstance.options.dragX) {
     data.x = x
@@ -101,7 +115,7 @@ function calcPosition(e, chartInstance, datasetIndex, index, data) {
   if (chartInstance.data.datasets[datasetIndex].data[index].y !== undefined) {
     if (chartInstance.options.dragY !== false) {
       data.y = y
-    }  
+    }
     return data
   } else {
     if (type === 'horizontalBar') {
@@ -160,15 +174,15 @@ function applyMagnet(chartInstance, i, j) {
   }
 }
 
-function dragEndCallback(chartInstance, callback) {
+function dragEndCallback(chartInstance) {
   return () => {
     curDatasetIndex, curIndex = undefined
-    if (typeof callback === 'function' && element) {
+    if (typeof chartInstance.options.onDragEnd === 'function' && element) {
       const e = event.sourceEvent
       const datasetIndex = element._datasetIndex
       const index = element._index
       let value = applyMagnet(chartInstance, datasetIndex, index)
-      return callback(e, datasetIndex, index, value)
+      return chartInstance.options.onDragEnd(e, datasetIndex, index, value, chartInstance.data.datasets[datasetIndex].data)
     }
   }
 }
@@ -181,7 +195,7 @@ const ChartJSdragDataPlugin = {
         drag().container(chartInstance.chart.canvas)
           .on('start', getElement(chartInstance, chartInstance.options.onDragStart))
           .on('drag', updateData(chartInstance, chartInstance.options.onDrag))
-          .on('end', dragEndCallback(chartInstance, chartInstance.options.onDragEnd))
+          .on('end', dragEndCallback(chartInstance))
       )
     }
   },
@@ -204,7 +218,7 @@ const ChartJSdragDataPlugin = {
           }
         })
       })
-            
+
       // turn off normal tooltips
       // chart.options.tooltips.enabled = false;
     }
